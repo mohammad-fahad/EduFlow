@@ -7,12 +7,12 @@ generator client {
   provider = "prisma-client-js"
 }
 
-enum SystemRole {
-  SUPER_ADMIN  // Your wife & you (Global SaaS Control)
-  PRINCIPAL    // School Owners
-  TEACHER      // School Staff
-  STUDENT      // Learners
-  PARENT       // Guardians
+enum Role {
+  SUPER_ADMIN
+  ADMIN       // Principal
+  TEACHER
+  STUDENT
+  PARENT
 }
 
 enum InstitutionType {
@@ -52,17 +52,20 @@ model Institution {
   createdAt       DateTime           @default(now())
   users           User[]
   students        Student[]
+  notices         Notice[]
 }
 
 model User {
   id            String      @id @default(uuid())
   email         String      @unique
   name          String?
-  role          SystemRole  @default(STUDENT)
+  role          Role  @default(STUDENT)
   
   // Relations
   institutionId String?     // Nullable because Super Admins don't belong to a single school
   institution   Institution? @relation(fields: [institutionId], references: [id])
+  
+  noticesAuthored Notice[]
   
   createdAt     DateTime    @default(now())
 }
@@ -113,4 +116,22 @@ model Payment {
   bkashTrxId  String?   @unique // Stores valid bank confirmation IDs for reconciliation audit logs
   status      String    @default("PAID") // "PAID" or "PENDING"
   paidAt      DateTime  @default(now())
+}
+
+model Notice {
+  id            String      @id @default(cuid())
+  title         String
+  content       String      @db.Text
+  isPublished   Boolean     @default(true)
+  
+  // Who wrote it and where does it belong?
+  authorId      String
+  author        User        @relation(fields: [authorId], references: [id])
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([institutionId]) // Crucial for query performance
 }
