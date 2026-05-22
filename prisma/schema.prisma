@@ -1,0 +1,116 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum SystemRole {
+  SUPER_ADMIN  // Your wife & you (Global SaaS Control)
+  PRINCIPAL    // School Owners
+  TEACHER      // School Staff
+  STUDENT      // Learners
+  PARENT       // Guardians
+}
+
+enum InstitutionType {
+  SCHOOL
+  MADRASA
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  PAID
+  UNPAID
+  SUSPENDED
+}
+
+enum TierPackage {
+  BASIC      // Up to 200 students
+  STANDARD   // Up to 600 students
+  PREMIUM    // Unlimited access
+}
+
+model Institution {
+  id              String             @id @default(uuid())
+  name            String
+  ownerName       String?
+  ownerEmail      String?
+  ownerId         String             
+  type            String             @default("SCHOOL")
+  
+  packageTier     String             @default("BASIC")
+  status          String             @default("TRIAL")
+  trialDays       Int                @default(14)
+  subscriptionPrice Float            @default(0)
+
+  expiresAt       DateTime?          
+  autoPause       Boolean            @default(true) 
+  
+  createdAt       DateTime           @default(now())
+  users           User[]
+  students        Student[]
+}
+
+model User {
+  id            String      @id @default(uuid())
+  email         String      @unique
+  name          String?
+  role          SystemRole  @default(STUDENT)
+  
+  // Relations
+  institutionId String?     // Nullable because Super Admins don't belong to a single school
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+  
+  createdAt     DateTime    @default(now())
+}
+
+model Student {
+  id            String   @id @default(uuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  rollId        String   // String to handle alphanumeric sequences like "G-05" or "১২"
+  name          String
+  className     String   // e.g., "Class 5", "Mizan", "Nahw"
+  guardianPhone String   // Used as the primary lookup identity key for passwordless parent portals
+  monthlyFee    Float
+
+  attendance    Attendance[]
+  payments      Payment[]
+
+  createdAt     DateTime @default(now())
+
+  // CRITICAL LAUNCH GUARDRAIL: Prevents assigning duplicate rolls within the same class at the same school
+  @@unique([institutionId, className, rollId])
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+}
+
+model Attendance {
+  id        String           @id @default(uuid())
+  date      DateTime
+  status    AttendanceStatus @default(PRESENT) // 🚀 FIXED: Bound explicitly to the enum type
+  
+  studentId String
+  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // Compound unique key ensures a student can only have one attendance record per day
+  @@unique([studentId, date])
+}
+
+model Payment {
+  id          String    @id @default(uuid())
+  studentId   String
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  amount      Float
+  month       String    // e.g., "May-2026" standard tracking keys
+  bkashTrxId  String?   @unique // Stores valid bank confirmation IDs for reconciliation audit logs
+  status      String    @default("PAID") // "PAID" or "PENDING"
+  paidAt      DateTime  @default(now())
+}
