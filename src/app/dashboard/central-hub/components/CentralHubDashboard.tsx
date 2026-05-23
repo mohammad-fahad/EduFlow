@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Button } from "../../component/ui/button";
-import { createInstitution } from "../../actions/institutions";
-import { Card } from "../../component/ui/Card";
+import { Button } from "../../../component/ui/button";
+import { createInstitution } from "../../../actions/institutions";
+import { Card } from "../../../component/ui/Card";
 import { cn } from "@/lib/utils";
 
 export default function CentralHubDashboard({ initialData: institutions }: { initialData: any[] }) {
@@ -16,19 +16,11 @@ export default function CentralHubDashboard({ initialData: institutions }: { ini
   });
 
   return (
-    <div className="min-h-screen bg-[#F4F6F8] font-bangla text-slate-800">
-       <header className="h-[65px] bg-slate-900 text-white flex items-center justify-between px-6 shadow-md">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center font-display font-black shadow-lg shadow-blue-600/20">
-            E
-          </div>
-          <div>
-            <h1 className="text-sm font-black tracking-wide uppercase">EduFlow Central</h1>
-            <p className="text-[10px] text-slate-400">গ্লোবাল বিজনেস প্যানেল (Global Operations)</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 text-amber-400 font-bold">
+    <div className="min-h-screen w-full font-bangla text-slate-800">
+       <header className="h-[65px]  text-white flex items-center justify-between px-6">
+        
+        <div className="flex items-center ms-auto gap-3">
+          <span className="text-xs bg-slate-800 px-3 py-1.5 rounded-lg  text-amber-400 font-bold">
             👑 সুপার-এডমিন মোড (Super-Admin)
           </span>
           <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold font-display text-white">
@@ -37,7 +29,7 @@ export default function CentralHubDashboard({ initialData: institutions }: { ini
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-6 space-y-6">
+      <main className="max-w-8xl mx-auto p-6 space-y-6">
         {/* Core Financial & Analytical Health Strip */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <Card className="!p-4 border-slate-200/60 shadow-sm bg-white">

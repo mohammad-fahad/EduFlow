@@ -18,5 +18,5 @@ export async function createInstitution(formData: FormData) {
     },
   });
 
-  revalidatePath("/central-hub");
+  revalidatePath("/dashboard/central-hub");
 }
