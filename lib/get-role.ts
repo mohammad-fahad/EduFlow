@@ -36,15 +36,19 @@ function isValidRole(role: string): role is AllowedRole {
   ].includes(role);
 }
 
-export function getRoleFromCookie(cookieString: string): AllowedRole | null {
-  const cookies = cookieString.split(";");
-  for (const cookie of cookies) {
-    const match = cookie.trim().match(/^role=/);
+export function getRoleFromCookies(
+  cookieHeader: string | null,
+): import("./roles").AppRole | null {
+  if (!cookieHeader) return null;
+  const { isValidRole } = require("./roles");
+  for (const name of [DEV_ROLE_COOKIE, SESSION_ROLE_COOKIE]) {
+    const match = cookieHeader
+      .split(";")
+      .map((c) => c.trim())
+      .find((c) => c.startsWith(`${name}=`));
     if (match) {
-      const val = decodeURIComponent(cookie.split("=")[1] ?? "");
-      if (isValidRole(val)) {
-        return val;
-      }
+      const val = decodeURIComponent(match.split("=")[1] ?? "");
+      if (isValidRole(val)) return val as any;
     }
   }
   return null;
