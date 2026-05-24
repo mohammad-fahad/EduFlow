@@ -5,123 +5,99 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
-import {
-  type AppRole,
-  ROLE_META,
-  prismaRoleToApp,
-  isValidRole,
-} from "@/lib/roles";
-import { DEV_ROLE_COOKIE } from "@/lib/get-role";
-
-const IS_DEV = process.env.NODE_ENV === "development";
+import { type AppRole, ROLE_META, prismaRoleToApp, isValidRole } from "@/lib/roles";
+import { DEV_ROLE_COOKIE, SESSION_ROLE_COOKIE, parseCookies } from "@/lib/get-role";
+import { DevRoleSwitcher } from "./DevRoleSwitcher";
 
 const NAV: Record<AppRole, { href: string; label: string; icon: string }[]> = {
   "super-admin": [
-    { href: "/dashboard/super-admin", label: "ওভারভিউ", icon: "📊" },
-    { href: "/dashboard/central-hub", label: "সেন্ট্রাল হাব", icon: "🌐" },
+    { href: "/dashboard/super-admin",  label: "ওভারভিউ",       icon: "📊" },
+    { href: "/dashboard/central-hub",  label: "সেন্ট্রাল হাব", icon: "🌐" },
     { href: "/dashboard/institutions", label: "সব প্রতিষ্ঠান", icon: "🏛️" },
   ],
   admin: [
-    { href: "/dashboard/admin", label: "ওভারভিউ", icon: "📊" },
-    { href: "/dashboard/students", label: "শিক্ষার্থী", icon: "👥" },
-    { href: "/dashboard/attendance", label: "উপস্থিতি", icon: "⏱️" },
-    { href: "/dashboard/fees", label: "ফি সংগ্রহ", icon: "৳" },
-    { href: "/dashboard/teachers", label: "শিক্ষক", icon: "🧑‍🏫" },
-    { href: "/dashboard/notices", label: "নোটিশ", icon: "📢" },
-    { href: "/dashboard/institution", label: "প্রতিষ্ঠান", icon: "🏫" },
+    { href: "/dashboard/admin",       label: "ওভারভিউ",   icon: "📊" },
+    { href: "/dashboard/students",    label: "শিক্ষার্থী", icon: "👥" },
+    { href: "/dashboard/attendance",  label: "উপস্থিতি",  icon: "⏱️" },
+    { href: "/dashboard/fees",        label: "ফি সংগ্রহ", icon: "৳"  },
+    { href: "/dashboard/teachers",    label: "শিক্ষক",    icon: "🧑‍🏫"},
+    { href: "/dashboard/notices",     label: "নোটিশ",     icon: "📢" },
+    { href: "/dashboard/admin/users", label: "ব্যবহারকারী", icon: "🔑" },
+    { href: "/dashboard/institution", label: "প্রতিষ্ঠান",  icon: "🏫" },
   ],
   moderator: [
-    { href: "/dashboard/moderator", label: "ওভারভিউ", icon: "📊" },
-    { href: "/dashboard/students", label: "শিক্ষার্থী", icon: "👥" },
-    { href: "/dashboard/attendance", label: "উপস্থিতি", icon: "⏱️" },
-    { href: "/dashboard/fees", label: "ফি সংগ্রহ", icon: "৳" },
-    { href: "/dashboard/notices", label: "নোটিশ", icon: "📢" },
+    { href: "/dashboard/moderator",  label: "ওভারভিউ",   icon: "📊" },
+    { href: "/dashboard/students",   label: "শিক্ষার্থী", icon: "👥" },
+    { href: "/dashboard/attendance", label: "উপস্থিতি",  icon: "⏱️" },
+    { href: "/dashboard/fees",       label: "ফি সংগ্রহ", icon: "৳"  },
+    { href: "/dashboard/notices",    label: "নোটিশ",     icon: "📢" },
   ],
   teacher: [
-    { href: "/dashboard/teacher", label: "ওভারভিউ", icon: "📊" },
-    { href: "/dashboard/students", label: "শিক্ষার্থী", icon: "👥" },
-    { href: "/dashboard/attendance", label: "উপস্থিতি", icon: "⏱️" },
-    { href: "/dashboard/notices", label: "নোটিশ", icon: "📢" },
+    { href: "/dashboard/teacher",    label: "ওভারভিউ",   icon: "📊" },
+    { href: "/dashboard/students",   label: "শিক্ষার্থী", icon: "👥" },
+    { href: "/dashboard/attendance", label: "উপস্থিতি",  icon: "⏱️" },
+    { href: "/dashboard/notices",    label: "নোটিশ",     icon: "📢" },
   ],
   parent: [
-    { href: "/dashboard/parent", label: "ওভারভিউ", icon: "📊" },
+    { href: "/dashboard/parent",     label: "ওভারভিউ", icon: "📊" },
     { href: "/dashboard/attendance", label: "উপস্থিতি", icon: "⏱️" },
-    { href: "/dashboard/fees", label: "আমার ফি", icon: "৳" },
-    { href: "/dashboard/notices", label: "নোটিশ", icon: "📢" },
+    { href: "/dashboard/fees",       label: "আমার ফি",  icon: "৳"  },
+    { href: "/dashboard/notices",    label: "নোটিশ",    icon: "📢" },
   ],
   student: [
-    { href: "/dashboard/student", label: "ওভারভিউ", icon: "📊" },
+    { href: "/dashboard/student",    label: "ওভারভিউ", icon: "📊" },
     { href: "/dashboard/attendance", label: "উপস্থিতি", icon: "⏱️" },
-    { href: "/dashboard/notices", label: "নোটিশ", icon: "📢" },
+    { href: "/dashboard/notices",    label: "নোটিশ",    icon: "📢" },
   ],
 };
 
-interface Session {
-  role: AppRole;
-  name: string;
-  institutionName: string;
-  isDevOverride: boolean;
+interface SessionState {
+  /** The role currently shown in the UI (may be dev-overridden) */
+  role:              AppRole;
+  /** The real DB role of the authenticated user — never changes during impersonation */
+  authenticatedRole: AppRole;
+  name:              string;
+  institutionName:   string;
+  isDevOverride:     boolean;
 }
 
-function getDevCookieRole(): AppRole | null {
+// Reads __dev_role__ from document.cookie — client-side only.
+// Only returns a value if __session_role__ is also "super-admin".
+function getDevOverrideRole(): AppRole | null {
   if (typeof document === "undefined") return null;
-  const match = document.cookie
-    .split(";")
-    .map((c) => c.trim())
-    .find((c) => c.startsWith(`${DEV_ROLE_COOKIE}=`));
-  if (!match) return null;
-  const val = decodeURIComponent(match.split("=")[1] ?? "");
-  return isValidRole(val) ? val : null;
+  const cookies = parseCookies(document.cookie);
+
+  const sessionRaw = cookies[SESSION_ROLE_COOKIE];
+  const devRaw     = cookies[DEV_ROLE_COOKIE];
+
+  if (!devRaw || !sessionRaw) return null;
+
+  const sessionKebab = sessionRaw.toLowerCase().replace(/_/g, "-");
+  if (sessionKebab !== "super-admin") return null; // only SUPER_ADMIN may override
+
+  const devKebab = devRaw.toLowerCase().replace(/_/g, "-");
+  return isValidRole(devKebab) ? devKebab : null;
 }
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const router = useRouter();
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const router   = useRouter();
   const pathname = usePathname();
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<SessionState | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
 
     async function init() {
-      if (IS_DEV) {
-        const devRole = getDevCookieRole();
-        if (devRole) {
-          if (mounted) {
-            setSession({
-              role: devRole,
-              name: `Dev ${ROLE_META[devRole].label}`,
-              institutionName: "EduFlow Dev",
-              isDevOverride: true,
-            });
-            setLoading(false);
-          }
-          return;
-        }
-      }
-
-      // FIX 1: getUser() instead of getSession()
-      // getSession() reads a local cache and does NOT validate the JWT with the
-      // Supabase Auth server. An expired token passes getSession() but causes
-      // auth.uid() = null in RLS, returning 0 rows, which .single() turns into 406.
-      // getUser() always validates server-side — expired tokens get null immediately.
-      const {
-        data: { user: authUser },
-        error: authError,
-      } = await supabase.auth.getUser();
+      // ── getUser() not getSession() — validates JWT server-side ────────
+      const { data: { user: authUser }, error: authError } =
+        await supabase.auth.getUser();
 
       if (authError || !authUser) {
         router.replace("/login");
         return;
       }
 
-      // FIX 2: No nested join on Institution.
-      // .select("role, name, institution:Institution(name)") triggers a 406 when
-      // PostgREST cannot resolve the FK hint unambiguously. Split into two queries.
       const { data: dbUser, error: dbError } = await supabase
         .from("User")
         .select("role, name, institutionId")
@@ -131,13 +107,22 @@ export default function DashboardLayout({
       if (!mounted) return;
 
       if (dbError || !dbUser) {
-        // Auth row exists but no User row in DB — avoid infinite loop by signing out.
         await supabase.auth.signOut();
         router.replace("/login");
         return;
       }
 
-      const role = prismaRoleToApp(dbUser.role ?? "STUDENT");
+      const authenticatedRole = prismaRoleToApp(dbUser.role ?? "STUDENT");
+
+      // Write __session_role__ so middleware and getRoleFromCookies() can
+      // determine the real clearance level without a DB round-trip.
+      // Value stored as UPPERCASE to match DB convention.
+      document.cookie =
+        `${SESSION_ROLE_COOKIE}=${dbUser.role}; path=/; max-age=86400; SameSite=Lax`;
+
+      // Check for a valid dev override (only SUPER_ADMIN can have one)
+      const devOverride = getDevOverrideRole();
+      const effectiveRole = devOverride ?? authenticatedRole;
 
       let institutionName = "EduFlow";
       if (dbUser.institutionId) {
@@ -150,30 +135,28 @@ export default function DashboardLayout({
       }
 
       setSession({
-        role,
-        name: dbUser.name ?? authUser.email ?? "User",
+        role:              effectiveRole,
+        authenticatedRole,
+        name:              dbUser.name ?? authUser.email ?? "User",
         institutionName,
-        isDevOverride: false,
+        isDevOverride:     !!devOverride,
       });
       setLoading(false);
     }
 
     init();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((e) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(e => {
       if (e === "SIGNED_OUT") router.replace("/login");
     });
 
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
+    return () => { mounted = false; subscription.unsubscribe(); };
   }, [router]);
 
   const signOut = useCallback(async () => {
-    if (IS_DEV) document.cookie = `${DEV_ROLE_COOKIE}=; path=/; max-age=0`;
+    // Clear both role cookies on sign-out
+    document.cookie = `${DEV_ROLE_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+    document.cookie = `${SESSION_ROLE_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
     await supabase.auth.signOut();
     router.replace("/login");
   }, [router]);
@@ -187,7 +170,7 @@ export default function DashboardLayout({
   }
 
   const navItems = NAV[session.role] ?? NAV.student;
-  const meta = ROLE_META[session.role];
+  const meta     = ROLE_META[session.role];
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[var(--off-white)]">
@@ -197,9 +180,7 @@ export default function DashboardLayout({
             E
           </div>
           <div>
-            <h1 className="text-sm font-black font-display text-white uppercase">
-              EduFlow
-            </h1>
+            <h1 className="text-sm font-black font-display text-white uppercase">EduFlow</h1>
             <p className="text-[10px] text-slate-400 font-mono-edu truncate max-w-[140px]">
               {session.institutionName}
             </p>
@@ -207,16 +188,14 @@ export default function DashboardLayout({
         </div>
 
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          {navItems.map((item) => {
-            const active =
-              pathname === item.href ||
+          {navItems.map(item => {
+            const active = pathname === item.href ||
               (item.href.length > 10 && pathname.startsWith(item.href));
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${active ? "bg-blue-600 text-white" : "text-slate-400 hover:bg-slate-800/60 hover:text-white"}`}
-              >
+              <Link key={item.href} href={item.href}
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
+                  active ? "bg-blue-600 text-white" : "text-slate-400 hover:bg-slate-800/60 hover:text-white"
+                }`}>
                 <span>{item.icon}</span>
                 <span>{item.label}</span>
               </Link>
@@ -225,55 +204,27 @@ export default function DashboardLayout({
         </nav>
 
         <div className="p-3 border-t border-slate-800 space-y-2">
-          {IS_DEV && (
-            <div className="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700">
-              <p className="text-[9px] font-bold text-yellow-400 uppercase tracking-widest mb-1.5">
-                ⚡ Dev Role
+          {session.isDevOverride && (
+            <div className="px-3 py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+              <p className="text-[9px] font-bold text-yellow-400 uppercase tracking-widest">
+                ⚡ Impersonating: {ROLE_META[session.role].label}
               </p>
-              <div className="flex flex-wrap gap-1">
-                {(
-                  [
-                    "super-admin",
-                    "admin",
-                    "moderator",
-                    "teacher",
-                    "parent",
-                    "student",
-                  ] as AppRole[]
-                ).map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => {
-                      document.cookie = `${DEV_ROLE_COOKIE}=${r}; path=/; SameSite=Lax`;
-                      window.location.href = ROLE_META[r].dashboardPath;
-                    }}
-                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full cursor-pointer transition-colors ${session.role === r ? "bg-yellow-400 text-slate-900" : "bg-slate-700 text-slate-300 hover:bg-slate-600"}`}
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
             </div>
           )}
+
           <div className="flex items-center gap-2.5 px-3 py-2">
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-500 flex items-center justify-center text-[10px] font-bold text-slate-800 shrink-0">
               {session.name.slice(0, 2).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[12px] font-medium text-white truncate">
-                {session.name}
-              </p>
-              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
-                {meta.label}
-              </p>
+              <p className="text-[12px] font-medium text-white truncate">{session.name}</p>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{meta.label}</p>
             </div>
           </div>
-          <button
-            onClick={signOut}
-            className="w-full flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-950/40 transition-colors cursor-pointer"
-          >
-            <span>🚪</span>
-            <span>সাইন আউট</span>
+
+          <button onClick={signOut}
+            className="w-full flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-950/40 transition-colors cursor-pointer">
+            <span>🚪</span><span>সাইন আউট</span>
           </button>
         </div>
       </aside>
@@ -281,6 +232,12 @@ export default function DashboardLayout({
       <main className="flex-1 min-w-0 overflow-y-auto bg-[var(--off-white)] p-4 md:p-8">
         <div className="max-w-6xl mx-auto">{children}</div>
       </main>
+
+      {/* DevRoleSwitcher: internally guards itself — renders null if not SUPER_ADMIN */}
+      <DevRoleSwitcher
+        authenticatedRole={session.authenticatedRole}
+        currentRole={session.role}
+      />
     </div>
   );
 }
