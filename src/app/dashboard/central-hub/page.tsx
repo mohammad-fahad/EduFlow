@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import CentralHubDashboard from "./components/CentralHubDashboard";
+export const dynamic = "force-dynamic";
 
 export default async function Page() {
   // Database calls are only allowed here

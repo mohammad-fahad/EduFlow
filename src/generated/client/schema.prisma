@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Institution {
+  id                String    @id @default(uuid())
+  name              String
+  createdAt         DateTime  @default(now())
+  ownerId           String
+  autoPause         Boolean   @default(true)
+  expiresAt         DateTime?
+  ownerEmail        String?
+  ownerName         String?
+  packageTier       String    @default("BASIC")
+  status            String    @default("TRIAL")
+  subscriptionPrice Float     @default(0)
+  trialDays         Int       @default(14)
+  type              String    @default("SCHOOL")
+  notices           Notice[]
+  students          Student[]
+  users             User[]
+}
+
+model User {
+  id              String       @id @default(uuid())
+  email           String       @unique
+  name            String?
+  institutionId   String?
+  createdAt       DateTime     @default(now())
+  role            Role         @default(STUDENT)
+  noticesAuthored Notice[]
+  institution     Institution? @relation(fields: [institutionId], references: [id])
+
+  @@map("User")
+}
+
+model Student {
+  id                  String              @id @default(uuid())
+  institutionId       String
+  rollId              String
+  name                String
+  className           String
+  guardianPhone       String
+  monthlyFee          Float
+  createdAt           DateTime            @default(now())
+  considerationStatus ConsiderationStatus @default(REGULAR)
+  attendance          Attendance[]
+  payments            Payment[]
+  institution         Institution         @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  @@unique([institutionId, className, rollId])
+}
+
+model Attendance {
+  id        String           @id @default(uuid())
+  studentId String
+  date      DateTime
+  status    AttendanceStatus @default(PRESENT)
+  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, date])
+}
+
+model Payment {
+  id         String   @id @default(uuid())
+  studentId  String
+  amount     Float
+  month      String
+  paidAt     DateTime @default(now())
+  bkashTrxId String?  @unique
+  status     String   @default("PAID")
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Notice {
+  id            String      @id @default(cuid())
+  title         String
+  content       String
+  isPublished   Boolean     @default(true)
+  authorId      String
+  institutionId String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  author        User        @relation(fields: [authorId], references: [id])
+  institution   Institution @relation(fields: [institutionId], references: [id])
+
+  @@index([institutionId])
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  TEACHER
+  STUDENT
+  PARENT
+}
+
+enum InstitutionType {
+  SCHOOL
+  MADRASA
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  PAID
+  UNPAID
+  SUSPENDED
+}
+
+enum TierPackage {
+  BASIC
+  STANDARD
+  PREMIUM
+}
+
+enum ConsiderationStatus {
+  REGULAR
+  SCHOLARSHIP
+  SPECIAL_DUE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+}
