@@ -155,10 +155,10 @@ export async function provisionUser(
       // TEACHER or MODERATOR — only User row needed
       await prisma.user.create({
         data: {
-          id:            newUserId,
+          id: newUserId,
           email,
           name,
-          role,
+          role: role as any,
           institutionId: INSTITUTION_ID,
         },
       });
