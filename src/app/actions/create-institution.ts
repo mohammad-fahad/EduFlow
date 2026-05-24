@@ -4,7 +4,7 @@
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { isSuperAdmin } from "@/src/lib/admin-utils";
+import { isSuperAdmin } from "@/lib/admin-utils";
 
 export type CreateInstitutionResult =
   | { success: true; institutionId: string }

@@ -7,8 +7,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ROLES, ROLE_META, type AppRole } from "@/src/lib/roles";
-import { DEV_ROLE_COOKIE } from "@/src/lib/get-role";
+import { ROLES, ROLE_META, type AppRole } from "@/lib/roles";
+import { DEV_ROLE_COOKIE } from "@/lib/get-role";
 
 interface Props {
   currentRole: AppRole;

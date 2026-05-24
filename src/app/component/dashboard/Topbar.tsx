@@ -2,7 +2,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { type AppRole, ROLE_META } from "@/src/lib/roles";
+import { type AppRole, ROLE_META } from "@/lib/roles";
 
 const isDev = process.env.NODE_ENV === "development";
 

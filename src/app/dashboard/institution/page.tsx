@@ -16,14 +16,14 @@ export default function InstitutionPage() {
  useEffect(() => {
   const load = async () => {
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await supabase.auth.getUser();
 
-      if (!sessionData.session) {
+      if (!sessionData.user) {
         router.push("/login");
         return;
       }
 
-      const userId = sessionData.session.user.id;
+      const userId = sessionData.user.id;
 
       const res = await fetch(`/api/institution/get?ownerId=${userId}`);
 
@@ -35,7 +35,7 @@ export default function InstitutionPage() {
 
       console.log("DATA:", data);
 
-      setUser(sessionData.session.user);
+      setUser(sessionData.user);
 
       // ensure array always
       setInstitution(Array.isArray(data) ? data : []);
