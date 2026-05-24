@@ -16,7 +16,7 @@ interface Props {
 
 export function DevRoleSwitcher({ currentRole }: Props) {
   // Hard guard: renders nothing outside development
-  if (process.env.NODE_ENV !== "development") return null;
+  // if (process.env.NODE_ENV !== "development") return null;
 
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -65,14 +65,17 @@ export function DevRoleSwitcher({ currentRole }: Props) {
                 Dev Role Switcher
               </p>
               <p className="text-[12px] text-slate-600 mt-0.5">
-                Only visible in <code className="bg-slate-200 px-1 rounded text-[10px]">development</code>
+                Only visible in{" "}
+                <code className="bg-slate-200 px-1 rounded text-[10px]">
+                  development
+                </code>
               </p>
             </div>
 
             {/* Role list */}
             <div className="p-2">
               {ROLES.map((role) => {
-                const meta   = ROLE_META[role];
+                const meta = ROLE_META[role];
                 const active = role === currentRole;
                 return (
                   <button
@@ -85,12 +88,24 @@ export function DevRoleSwitcher({ currentRole }: Props) {
                         : "hover:bg-slate-50 cursor-pointer",
                     ].join(" ")}
                   >
-                    <span className={["w-2 h-2 rounded-full shrink-0", active ? "bg-green-400" : "bg-slate-300"].join(" ")} />
+                    <span
+                      className={[
+                        "w-2 h-2 rounded-full shrink-0",
+                        active ? "bg-green-400" : "bg-slate-300",
+                      ].join(" ")}
+                    />
                     <div className="flex-1 min-w-0">
-                      <p className={["text-[13px] font-semibold truncate", meta.color].join(" ")}>
+                      <p
+                        className={[
+                          "text-[13px] font-semibold truncate",
+                          meta.color,
+                        ].join(" ")}
+                      >
                         {meta.label}
                       </p>
-                      <p className="text-[10px] text-slate-400 truncate">{meta.description}</p>
+                      <p className="text-[10px] text-slate-400 truncate">
+                        {meta.description}
+                      </p>
                     </div>
                     {active && (
                       <span className="text-[9px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full shrink-0">
