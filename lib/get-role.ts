@@ -17,15 +17,34 @@ export interface ResolvedSession {
   isDevOverride:   boolean;
 }
 
-export function getRoleFromCookies(cookieHeader: string | null): import("./roles").AppRole | null {
-  if (!cookieHeader) return null;
-  const { isValidRole } = require("./roles");
-  for (const name of [DEV_ROLE_COOKIE, SESSION_ROLE_COOKIE]) {
-    const match = cookieHeader.split(";").map(c => c.trim())
-      .find(c => c.startsWith(`${name}=`));
+type AllowedRole =
+  | "super-admin"
+  | "admin"
+  | "moderator"
+  | "teacher"
+  | "parent"
+  | "student";
+
+function isValidRole(role: string): role is AllowedRole {
+  return [
+    "super-admin",
+    "admin",
+    "moderator",
+    "teacher",
+    "parent",
+    "student",
+  ].includes(role);
+}
+
+export function getRoleFromCookie(cookieString: string): AllowedRole | null {
+  const cookies = cookieString.split(";");
+  for (const cookie of cookies) {
+    const match = cookie.trim().match(/^role=/);
     if (match) {
-      const val = decodeURIComponent(match.split("=")[1] ?? "");
-      if (isValidRole(val)) return val;
+      const val = decodeURIComponent(cookie.split("=")[1] ?? "");
+      if (isValidRole(val)) {
+        return val;
+      }
     }
   }
   return null;
