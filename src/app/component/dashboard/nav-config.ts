@@ -3,7 +3,7 @@
 // Sole source of truth for what appears in the sidebar.
 // Add items here — Sidebar.tsx reads this file automatically.
 
-import { AppRole } from "@/src/lib/roles";
+import { AppRole } from "@/lib/roles";
 
 
 

@@ -5,12 +5,15 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
-import { type AppRole, ROLE_META, prismaRoleToApp } from "@/src/lib/roles";
-import { DEV_ROLE_COOKIE } from "@/src/lib/get-role";
+import {
+  type AppRole,
+  ROLE_META,
+  prismaRoleToApp,
+  isValidRole,
+} from "@/lib/roles";
+import { DEV_ROLE_COOKIE } from "@/lib/get-role";
 
 const IS_DEV = process.env.NODE_ENV === "development";
-
-const isValidRole = (val: string): val is AppRole => val in ROLE_META;
 
 const NAV: Record<AppRole, { href: string; label: string; icon: string }[]> = {
   "super-admin": [
@@ -68,7 +71,7 @@ function getDevCookieRole(): AppRole | null {
     .find((c) => c.startsWith(`${DEV_ROLE_COOKIE}=`));
   if (!match) return null;
   const val = decodeURIComponent(match.split("=")[1] ?? "");
-  return isValidRole(val) ? (val as AppRole) : null;
+  return isValidRole(val) ? val : null;
 }
 
 export default function DashboardLayout({
@@ -83,6 +86,7 @@ export default function DashboardLayout({
 
   useEffect(() => {
     let mounted = true;
+
     async function init() {
       if (IS_DEV) {
         const devRole = getDevCookieRole();
@@ -99,42 +103,69 @@ export default function DashboardLayout({
           return;
         }
       }
+
+      // FIX 1: getUser() instead of getSession()
+      // getSession() reads a local cache and does NOT validate the JWT with the
+      // Supabase Auth server. An expired token passes getSession() but causes
+      // auth.uid() = null in RLS, returning 0 rows, which .single() turns into 406.
+      // getUser() always validates server-side — expired tokens get null immediately.
       const {
-        data: { session: sb },
-      } = await supabase.auth.getSession();
-      if (!sb?.user) {
+        data: { user: authUser },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError || !authUser) {
         router.replace("/login");
         return;
       }
 
-      const { data: dbUser } = await supabase
+      // FIX 2: No nested join on Institution.
+      // .select("role, name, institution:Institution(name)") triggers a 406 when
+      // PostgREST cannot resolve the FK hint unambiguously. Split into two queries.
+      const { data: dbUser, error: dbError } = await supabase
         .from("User")
-        .select("role, name, institution:Institution(name)")
-        .eq("id", sb.user.id)
+        .select("role, name, institutionId")
+        .eq("id", authUser.id)
         .single();
 
       if (!mounted) return;
-      if (!dbUser) {
+
+      if (dbError || !dbUser) {
+        // Auth row exists but no User row in DB — avoid infinite loop by signing out.
+        await supabase.auth.signOut();
         router.replace("/login");
         return;
       }
 
       const role = prismaRoleToApp(dbUser.role ?? "STUDENT");
-      const inst = dbUser.institution as { name?: string } | null;
+
+      let institutionName = "EduFlow";
+      if (dbUser.institutionId) {
+        const { data: inst } = await supabase
+          .from("Institution")
+          .select("name")
+          .eq("id", dbUser.institutionId)
+          .single();
+        if (inst?.name) institutionName = inst.name;
+      }
+
       setSession({
         role,
-        name: dbUser.name ?? sb.user.email ?? "User",
-        institutionName: inst?.name ?? "EduFlow",
+        name: dbUser.name ?? authUser.email ?? "User",
+        institutionName,
         isDevOverride: false,
       });
       setLoading(false);
     }
+
     init();
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((e) => {
       if (e === "SIGNED_OUT") router.replace("/login");
     });
+
     return () => {
       mounted = false;
       subscription.unsubscribe();
@@ -184,11 +215,7 @@ export default function DashboardLayout({
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
-                  active
-                    ? "bg-blue-600 text-white"
-                    : "text-slate-400 hover:bg-slate-800/60 hover:text-white"
-                }`}
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${active ? "bg-blue-600 text-white" : "text-slate-400 hover:bg-slate-800/60 hover:text-white"}`}
               >
                 <span>{item.icon}</span>
                 <span>{item.label}</span>
@@ -198,7 +225,6 @@ export default function DashboardLayout({
         </nav>
 
         <div className="p-3 border-t border-slate-800 space-y-2">
-          {/* DEV ONLY role switcher */}
           {IS_DEV && (
             <div className="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700">
               <p className="text-[9px] font-bold text-yellow-400 uppercase tracking-widest mb-1.5">
@@ -221,11 +247,7 @@ export default function DashboardLayout({
                       document.cookie = `${DEV_ROLE_COOKIE}=${r}; path=/; SameSite=Lax`;
                       window.location.href = ROLE_META[r].dashboardPath;
                     }}
-                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full transition-colors cursor-pointer ${
-                      session.role === r
-                        ? "bg-yellow-400 text-slate-900"
-                        : "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                    }`}
+                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full cursor-pointer transition-colors ${session.role === r ? "bg-yellow-400 text-slate-900" : "bg-slate-700 text-slate-300 hover:bg-slate-600"}`}
                   >
                     {r}
                   </button>
@@ -233,7 +255,6 @@ export default function DashboardLayout({
               </div>
             </div>
           )}
-
           <div className="flex items-center gap-2.5 px-3 py-2">
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-500 flex items-center justify-center text-[10px] font-bold text-slate-800 shrink-0">
               {session.name.slice(0, 2).toUpperCase()}
@@ -257,7 +278,7 @@ export default function DashboardLayout({
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 overflow-y-auto bg-(--off-white) p-4 md:p-8">
+      <main className="flex-1 min-w-0 overflow-y-auto bg-[var(--off-white)] p-4 md:p-8">
         <div className="max-w-6xl mx-auto">{children}</div>
       </main>
     </div>

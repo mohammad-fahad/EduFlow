@@ -68,6 +68,14 @@ model User {
   noticesAuthored Notice[]
   
   createdAt     DateTime    @default(now())
+   @@map("User")
+}
+
+
+enum ConsiderationStatus {
+  REGULAR            // সাধারণ শিক্ষার্থী (নিয়মিত বেতন দেবে)
+  SCHOLARSHIP        // বৃত্তিপ্রাপ্ত/বৃত্তি (কোনো ফি দেওয়া লাগবে না - সম্পূর্ণ ফ্রি)
+  SPECIAL_DUE        // বিশেষ বিবেচনায় রাখা হয়েছে (আপাতত পে করবে না বা ডিউ থাকবে)
 }
 
 model Student {
@@ -78,8 +86,11 @@ model Student {
   rollId        String   // String to handle alphanumeric sequences like "G-05" or "১২"
   name          String
   className     String   // e.g., "Class 5", "Mizan", "Nahw"
-  guardianPhone String   // Used as the primary lookup identity key for passwordless parent portals
+  guardianPhone String   // Used as the primary lookup identity key for passwordless parent portals এবং WhatsApp নম্বরের জন্য
   monthlyFee    Float
+
+  // 🛠️ নতুন যুক্ত করা ফিল্ড: স্কলারশিপ বা বিশেষ বিবেচনার ট্র্যাকিং
+  considerationStatus ConsiderationStatus @default(REGULAR)
 
   attendance    Attendance[]
   payments      Payment[]

@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { type AppRole, ROLE_META } from "@/src/lib/roles";
+import { type AppRole, ROLE_META } from "@/lib/roles";
 import { NAV_CONFIG, type NavItem } from "./nav-config";
 import { JSX } from "react";
 

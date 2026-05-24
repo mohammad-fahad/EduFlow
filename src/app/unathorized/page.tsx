@@ -1,11 +1,8 @@
 // FILE: src/app/unauthorized/page.tsx
+// This page was MISSING from the repo — causing 404 on every role redirect
 import Link from "next/link";
 
-export default function UnauthorizedPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ from?: string; role?: string }>;
-}) {
+export default function UnauthorizedPage() {
   return (
     <div className="min-h-screen bg-[var(--off-white)] flex items-center justify-center p-6">
       <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-lg p-8 text-center">
