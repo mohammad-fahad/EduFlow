@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 
@@ -22,8 +22,8 @@ async function checkPermission() {
     return { error: "User does not belong to an institution", status: 403 };
   }
 
-  // শুধুমাত্র ADMIN এবং TEACHER অনুমতি পাবেন
-  if (dbUser.role !== "ADMIN" && dbUser.role !== "TEACHER") {
+  // শুধুমাত্র SUPER_ADMIN এবং TEACHER অনুমতি পাবেন
+  if (dbUser.role !== "SUPER_ADMIN" && dbUser.role !== "TEACHER") {
     return { error: "Forbidden: Insufficient permissions", status: 403 };
   }
 
@@ -32,8 +32,8 @@ async function checkPermission() {
 
 // ২. EDIT/UPDATE NOTICE (PATCH)
 export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } },
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }, // 🛠️ Next.js 15+ এর জন্য Promise টাইপ সেট করা হয়েছে
 ) {
   try {
     const permission = await checkPermission();
@@ -44,8 +44,9 @@ export async function PATCH(
       );
     }
 
+    // 🛠️ params অবজেক্টটি প্রমিজ হওয়ায় এখানে await করা হলো
+    const { id: noticeId } = await context.params;
     const { title, content } = await request.json();
-    const noticeId = params.id;
 
     // নিশ্চিত করা যে নোটিশটি ওই নির্দিষ্ট ইন্সটিটিউশনেরই
     const existingNotice = await prisma.notice.findUnique({
@@ -74,6 +75,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, data: updatedNotice });
   } catch (error) {
+    console.error("PATCH Notice Error:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },
@@ -83,8 +85,8 @@ export async function PATCH(
 
 // ৩. DELETE NOTICE (DELETE)
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } },
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }, // 🛠️ এখানেও Promise টাইপ সেট করা হয়েছে
 ) {
   try {
     const permission = await checkPermission();
@@ -95,7 +97,8 @@ export async function DELETE(
       );
     }
 
-    const noticeId = params.id;
+    // 🛠️ params অবজেক্টটি await করা হলো
+    const { id: noticeId } = await context.params;
 
     // নিশ্চিত করা যে নোটিশটি ওই নির্দিষ্ট ইন্সটিটিউশনেরই
     const existingNotice = await prisma.notice.findUnique({
@@ -123,6 +126,7 @@ export async function DELETE(
       message: "Notice deleted successfully",
     });
   } catch (error) {
+    console.error("DELETE Notice Error:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },
